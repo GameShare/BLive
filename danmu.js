@@ -158,7 +158,7 @@ function startTCPClient(RoomId, danmuServer, startTime){
                 log("新弹幕文件已生成!");
 
                 // 调用 danmaku2ass 生成标准ass文件
-                var pythonCommand = config.pythonName + " ./danmaku2ass/danmaku2ass.py -o "  + danmuAssFileName + " -s " + config.s + " -fn " + config.fn + " -fs " + config.fs + " -a " + config.a + " -dm " + config.dm + " -ds " + config.ds + " "  + danmuFileName;
+                var pythonCommand = config.pythonName + " ./danmaku2ass.py -o "  + danmuAssFileName + " -s " + config.s + " -fn " + config.fn + " -fs " + config.fs + " -a " + config.a + " -dm " + config.dm + " -ds " + config.ds + " "  + danmuFileName;
                 // console.log(pythonCommand)
                 exec(pythonCommand, function(error,stdout,stderr){
                     log('视频ass文件正在生成!')
