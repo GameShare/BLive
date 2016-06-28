@@ -1,8 +1,8 @@
 var request       = require('superagent');
 var fs            = require('fs');
 var process       = require('process');
-var config        = require('./config.js');
 
+var config        = require('./config.js');
 var danmu         = require("./danmu.js");
 
 /*房间ID号*/
@@ -16,7 +16,6 @@ var tempBytesRead = -1;         // 传输数据的临时值
 
 // 对弹幕的检查:关于弹幕采用如下规则
 // 首次运行时检查当前视频流是否开启, 并收集弹幕; 若视频流开启, 同时将 danmuFlag 置为1
-// 
 // 定时检查时, 再次检测视频流是否开启; 
 // 若视频流开启而之前视频流断开, 则重启弹幕收集器, 并将起始时间置为此次检测的时间, 同时将 danmuFlag 置为1
 // 若视频流关闭而之前视频流开启, 则重启弹幕收集器, 并将起始时间置为此次检测的时间, 同时将 danmuFlag 置为0
@@ -209,7 +208,6 @@ function startDownload(RoomId){
         })
 }
 
-
 // 记录数据
 function log(str){
     console.log(new Date().toLocaleString() + "  " + str);
@@ -224,12 +222,3 @@ process.on('SIGINT', function() {
         process.exit();
     }, 3000)
 });
-
-/*
-    所用api
-
-    小房间号 请求视频地址
-    http://live.bilibili.com/api/playurl?cid=35598&player=1&quality=0&sign=4be5230988914127ef50f51b9b5784d3
-    大房间号 请求视频地址
-    http://live.bilibili.com/api/playurl?cid=1013&player=1&quality=0
- */

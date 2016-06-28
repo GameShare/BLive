@@ -68,10 +68,7 @@ function startTCPClient(RoomId, danmuServer, startTime){
 
         // 在连接刚建立时新建弹幕临时文件, 以防止在整个阶段没有弹幕而导致文件无法生成进而引发Bug
         fs.appendFile(danmuTempFileName, '', function(err){
-            if(err){
-                console.log(err);
-                return;
-            }
+            if(err) return console.log(err);
         });
         
         // 每隔30秒发送一次心跳包
@@ -100,10 +97,10 @@ function startTCPClient(RoomId, danmuServer, startTime){
         // 原始字符串
         var rawStr = data.toString()
         var pattern = /{"info":.*?"cmd":"(.*?)"}/g;
-        // console.log("\n" + rawStr)   // 调试用---输出原始字符串
         
         // 通过循环将一组数据的每一条弹幕都进行输出
         while(true){
+
             var match = pattern.exec(rawStr)
             if(match === null) break;
             
@@ -124,15 +121,10 @@ function startTCPClient(RoomId, danmuServer, startTime){
 
                 // 向临时文件里追加数据
                 fs.appendFile(danmuTempFileName, oneDanmu, function(err){
-                    if(err){
-                        console.log(err);
-                        return;
-                    }
+                    if(err) return console.log(err);
                 });
             }
-
         }
-
     });
 
     // 为客户端添加“close”事件处理函数
@@ -178,13 +170,8 @@ function startTCPClient(RoomId, danmuServer, startTime){
                     log("旧弹幕文件已删除!")
                 })
             })
-
         })
-        
-        // startTCPClient(RoomId, danmuServer);
-        // return;
     });
-
 }
 
 // 记录数据
@@ -192,14 +179,11 @@ function log(str){
     console.log(new Date().toLocaleString() + "  " + str);
 }
 
+module.exports.getDanmu = getDanmuServer;
+module.exports.client   = client;
 
 /*
     1. 将数据以 Buffer 形式输出只需要强制转换为 Buffer 类型就好了
         Buffer(需要以 Buffer 形式输出的数据)
 
  */
-
-
-
-module.exports.getDanmu = getDanmuServer;
-module.exports.client   = client;
