@@ -6,7 +6,7 @@ var config        = require('./config.js');
 var danmu         = require("./danmu.js");
 
 /*房间ID号*/
-var RoomId        = config.roomId;        // 直播间的视频ID
+var RoomId        = process.argv[2] || config.roomId;        // 直播间的视频ID
 
 /*FLAGs*/
 var statusFlag    = false;      // 直播间是否开启
@@ -43,7 +43,7 @@ function getTrueRoomID(RoomId){
 
             var match = res.text.match(/var ROOMID = \d*?;/)
             var TrueRoomID = match[0].replace("var ROOMID = ", "").replace(";", "");
-            log('已解析出房间真实地址, 开始进行视频解析');
+            log(`输入的房间地址为${RoomId}, 已解析出房间真实地址为 ${TrueRoomID}, 开始进行视频解析`);
 
             // 在获取到房间的真实信息后, 运行下一个函数以开始爬取
             main(TrueRoomID)
