@@ -41,7 +41,9 @@ function getDanmuServer(RoomId, currentTime){
                 else throw err;
             }
 
-            var danmuServer = res.text.match(/livecmt.*?com/)[0];
+            // var danmuServer = res.text.match(/livecmt.*?com/)[0];
+            var danmuServer =  "dm.live.bilibili.com";
+
             log("成功解析弹幕服务器地址: " + danmuServer);
             startTCPClient(RoomId, danmuServer, currentTime)
         })
