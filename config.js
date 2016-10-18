@@ -4,6 +4,9 @@ var config = {
     // 直播间的房间号
     roomId: 116,
 
+    // 断线之后重连的等待时间
+    timeout : 10000,
+
     // 电脑里python的程序名称, 默认为 windows 下的 python, python版本需要大于3
     pythonName : 'python3',
 
