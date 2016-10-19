@@ -1,8 +1,11 @@
 var request       = require('superagent');
 var fs            = require('fs');
+var colors        = require('colors'); 
+var util          = require('util');
 
 var config        = require('./config.js');
 var danmu         = require("./danmu.js");
+var common        = require("./common.js")
 
 /*消息通知插件*/
 var showMsg       = require("./message/index.js")
@@ -46,7 +49,8 @@ function getTrueRoomID(RoomId){
         .end(function(err, res){
             if(err) {
                 return setTimeout(() => {
-                    log("getTrueRoomID 错误, 将在一定时间后重试")
+                    common.logError("getTrueRoomID 错误, 将在一定时间后重试")
+                    common.logError(err.toString())
                     getTrueRoomID(RoomId)
                 }, config.timeout)
             }
@@ -54,9 +58,12 @@ function getTrueRoomID(RoomId){
             // 一定几率不给回传数据
             if(!res){getTrueRoomID(RoomId);return;}
 
-            var match = res.text.match(/var ROOMID = \d*?;/)
-            var TrueRoomID = match[0].replace("var ROOMID = ", "").replace(";", "");
-            log(`输入的房间地址为 ${RoomId}, 已解析出房间真实地址为 ${TrueRoomID}, 开始进行视频解析`);
+            var TrueRoomID = res.text.match(/var ROOMID = (\d*?);/)[1];
+            var RoomTitle  = res.text.match(/itemprop="name" content="(.*?) - (.*?) - /)[1];
+            var RoomUP     = res.text.match(/itemprop="name" content="(.*?) - (.*?) - /)[2];
+
+            common.log(`房间信息 : 输入的房间地址为 ${RoomId}, 已解析出房间真实地址为 ${TrueRoomID}`);
+            common.log(`房间信息 : 房间标题为 ${RoomTitle}, UP主为 ${RoomUP}`)
 
             // 在获取到房间的真实信息后, 运行下一个函数以开始爬取
             main(TrueRoomID)
@@ -66,14 +73,16 @@ function getTrueRoomID(RoomId){
 // 阶段2:　主函数, 开始进行弹幕和视频的爬取
 function main(RoomId){
 
+    makeNewDirection();
+
     // 定义一个独一无二的标识符, 形式为 20161018_182620
-    currentSymbol = createSymbol();
+    // currentSymbol = common.createSymbol();
 
     // 连接弹幕服务器
-    danmu.startDanmuServer(RoomId, currentSymbol)
+    // danmu.startDanmuServer(RoomId, currentSymbol)
 
     // 连接视频服务器
-    checkRoomInfo(RoomId, currentSymbol)
+    checkRoomInfo(RoomId)
 
     // 定时检查视频连接是否还在, 如果已断开则重连
     setInterval(function(){
@@ -85,15 +94,16 @@ function main(RoomId){
 
 
 // 视频服务器的检查连接
-function checkRoomInfo(RoomId, currentSymbol){
+function checkRoomInfo(RoomId){
 
     request.get('http://live.bilibili.com/live/getInfo?roomid=' + RoomId)
         .timeout(5000)
         .end(function(err, res){
-            log("当前状态 : statusFlag " + statusFlag + "  streamFlag " + streamFlag)
+            common.logSimple("当前状态 : statusFlag " + statusFlag + "  streamFlag " + streamFlag)
             if(err) {
                 return setTimeout(() => {
-                    log("checkRoomInfo 错误, 将在一定时间后重试")
+                    common.logError("checkRoomInfo 错误, 将在一定时间后重试")
+                    common.logError(err.toString())
                     checkRoomInfo(RoomId)
                 }, config.timeout)
             }
@@ -106,9 +116,15 @@ function checkRoomInfo(RoomId, currentSymbol){
                 // 如果直播间开启, 而且之前直播间是关闭的, 则调用 startDownload 开始下载视频
                 case "on" : 
                     if(!statusFlag || !streamFlag){
-                        log(`直播间 ${RoomId} 已经开启`);
+                        common.log(`直播间 ${RoomId} 已经开启`);
                         showMsg("BLive 直播监听程序", `直播间 ${RoomId} 已经开启`, (err) => {});
-                        startDownload(RoomId, currentSymbol);
+
+                        // 每次直播打开时, 都应该重置标识符, 同时重启弹幕收集器
+                        currentSymbol = common.createSymbol();
+                        danmu.restartDanmuServer(RoomId, currentSymbol)
+                        danmuFlag = 0;
+
+                        startDownload(RoomId);
                     }
                     statusFlag = true;
                     danmuFlag  = 1;
@@ -117,20 +133,21 @@ function checkRoomInfo(RoomId, currentSymbol){
                 // 如果直播间关闭, 而且之前直播间是开启的, 则断开连接
                 case "off" : 
                     if(statusFlag){
-                        log(`直播间 ${RoomId} 已经关闭`);
+                        common.log(`直播间 ${RoomId} 已经关闭`);
                         showMsg("BLive 直播监听程序", `直播间 ${RoomId} 已经关闭`, (err) => {});
                         statusFlag = false;
                         if(streamFlag){
                             videoRBQ.abort();
+                            check0ByteVideo(currentSymbol);
                             streamFlag = false;
                         }
                     }
 
                     // 弹幕重启下载
                     if(danmuFlag && !firstFlag){
-                        log("直播间已关闭, 故弹幕收集器已重启!")
+                        common.log("直播间已关闭, 故弹幕收集器已重启!")
 
-                        currentSymbol = createSymbol();
+                        currentSymbol = common.createSymbol();
                         danmu.restartDanmuServer(RoomId, currentSymbol)
                         danmuFlag = 0;
                     }
@@ -141,7 +158,8 @@ function checkRoomInfo(RoomId, currentSymbol){
                 // 理论上是不会走到这一块的..
                 // 如果走到的话...一般是此次请求未收到数据或收到了错误的数据
                 default :
-                    log('直播间状态未知');
+                    common.logError('直播间状态未知');
+                    common.logError(`收到的状态码为 : ${JSON.parse(res.text).data._status}`);
                     
             }
        })
@@ -156,16 +174,22 @@ function checkRoomInfo(RoomId, currentSymbol){
  */
 function checkStreamBytes() {
 
-    if(videoRBQ && videoRBQ.req.socket.bytesRead === tempBytesRead){
+    // 如果视频流没有传输数据, 就不检查
+    if (streamFlag === false) return;
+
+    if (videoRBQ && videoRBQ.req.socket.bytesRead === tempBytesRead) {
+
         videoRBQ.abort();
+        check0ByteVideo(currentSymbol);
         streamFlag = false;
-        log("因网络原因, 连接已断开");
-        showMsg("BLive 直播监听程序", `因网络原因, 直播间 ${RoomId} 的连接已断开`, (err) => {});
+
+        common.log("因长时间未接收到数据, 连接已主动断开");
+        showMsg("BLive 直播监听程序", `因长时间未接收到数据, 直播间 ${RoomId} 的连接已断开`, (err) => {});
 
         // 网络原因断开后, 弹幕收集器重启
-        log("连接出现了关闭事件, 故弹幕收集器已重启!")
+        common.log("连接长时间未接收到数据, 故弹幕收集器已重启!")
 
-        currentSymbol = createSymbol();
+        currentSymbol = common.createSymbol();
         danmu.restartDanmuServer(RoomId, currentSymbol)
 
         danmuFlag = 0;
@@ -178,13 +202,13 @@ function checkStreamBytes() {
 }
 
 // 视频服务器的检查连接 Part 2 下载视频相关
-function startDownload(RoomId, currentSymbol){
+function startDownload(RoomId){
 
     // 要保存的视频的名称, 格式为 20160625_223516.flv
     var fileName = currentSymbol + '.flv';
 
     // 定义流, 用于保存视频文件
-    var stream = fs.createWriteStream(fileName);
+    var stream = fs.createWriteStream("./download/" + fileName);
 
     // 发送请求, 该请求用于获取视频的下载地址
     request.get('http://live.bilibili.com/api/playurl?cid=' + RoomId + '&player=1&quality=0')
@@ -192,14 +216,15 @@ function startDownload(RoomId, currentSymbol){
         .end(function(err, res){
             if(err) {
                 return setTimeout(() => {
-                    log("startDownload 错误, 将在一定时间后重试")
-                    startDownload(RoomId, currentSymbol)
+                    common.logError("startDownload 错误, 将在一定时间后重试")
+                    common.logError(err.toString())
+                    startDownload(RoomId)
                 }, config.timeout)
             }
 
             // 一定几率会传回 {"code":-400,"msg":"room error","data":[]}
             if(res.text === '{"code":-400,"msg":"room error","data":[]}'){
-                startDownload(RoomId, currentSymbol);
+                startDownload(RoomId);
                 return;
             }
 
@@ -207,16 +232,16 @@ function startDownload(RoomId, currentSymbol){
             var match = res.text.match(/<url><!\[CDATA\[.*?\]\]><\/url>/)
             var url   = match[0].replace("<url><![CDATA[", "").replace("]]></url>", "");
 
-            log('已解析出下载地址, 开始下载')
+            common.log('已解析出下载地址, 开始下载, 保存的视频的文件名为 : ' + fileName)
 
             streamFlag = true;
 
             // 弹幕开启下载
             // 如果不是第一次检查是否连接而且之前直播间没有开启, 则重启弹幕收集器
             if(!danmuFlag && !firstFlag){
-                log("直播间已重启, 故弹幕收集器已重启!")
+                common.log("直播间已重启, 故弹幕收集器已重启!")
 
-                currentSymbol = createSymbol();
+                currentSymbol = common.createSymbol();
                 danmu.restartDanmuServer(RoomId, currentSymbol)
                 danmuFlag = 1;
             }
@@ -228,28 +253,44 @@ function startDownload(RoomId, currentSymbol){
             videoRBQ.pipe(stream)
 
             videoRBQ.on("error", (err) => {
-                log("videoRBQ 发生错误 : " + err);
+                common.log("videoRBQ 发生错误 : " + err);
             })
         })
 }
 
 /**
- * 获取区分不同时间的标识符
- * 当前是根据系统时间来确定, 示例为 : 20161018_182620
+ * 在当前目录下新建一个名为 download 的文件夹
  */
-function createSymbol() {
-    return new Date(Math.floor(Date.now() / 1000) * 1000).toLocaleString().replace(/:/g, "").replace(/-/g, "").replace(/ /g, "_")
+function makeNewDirection () {
+    fs.mkdir("./download/", (err) => {});
 }
 
-// 记录数据
-function log(str){
-    console.log(new Date().toLocaleString() + "  " + str);
+/**
+ * 检查刚产生的视频文件是否为0KB, 如果是, 则等待字幕生成成功后删去视频文件和字幕文件
+ * 因为是检查视频文件, 所以对于非视频时间的弹幕是不做处理的
+ * 进行延时检查的原因是需要等待字幕文件生成!
+ */
+function check0ByteVideo (checkSymbol) {
+    setTimeout(() => {
+        fs.stat("./download/" + checkSymbol + ".flv", (err, stats) => {
+            if(err) return common.logError("检查0字节文件发送错误 : " + err.toString());
+
+            if (stats.size === 0) {
+                common.log(`发现 0 字节视频, 标识符为 ${checkSymbol}, 即将进行删除工作!`)
+
+                fs.unlink("./download/" + checkSymbol + ".flv", (err) => {if(err) return common.logError("删除0字节文件发送错误 : " + err.toString()); });
+                fs.unlink("./download/" + checkSymbol + ".ass", (err) => {if(err) return common.logError("删除0字节文件发送错误 : " + err.toString()); });
+                fs.unlink("./download/" + checkSymbol + ".xml", (err) => {if(err) return common.logError("删除0字节文件发送错误 : " + err.toString()); });
+            }
+        })
+    }, 3000)
 }
+
 
 // 使nodejs在关闭程序前先对已保存的弹幕临时文件进行处理
 process.stdin.resume();
 process.on('SIGINT', function() {
-    log("已收到退出信号!程序将在3秒后停止运行");
+    common.log("已收到退出信号!程序将在3秒后停止运行");
     danmu.stopDanmuServer();
     setTimeout(function(){
         process.exit(0);

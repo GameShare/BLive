@@ -2,7 +2,9 @@ var request   = require('superagent');
 var net       = require('net');   // net 模块中含有TCP套接字编程
 var fs        = require('fs');
 var exec      = require('child_process').exec;
+
 var config    = require('./config.js');
+var common    = require("./common.js");
 
 var client    = new net.Socket();   // 全局 client
 
@@ -14,6 +16,8 @@ var heartTimer;
 
 // 当前弹幕收集器的标识符, 区分不同弹幕收集器的重要标志, 在每次弹幕收集器开启时更新
 var currentSymbol;
+
+
 
 // 当前弹幕收集器开始运行的时间, 以 s 计, 该变量用于控制弹幕的相对时间, 在每次弹幕收集器开启时更新
 var xmlTime;
@@ -30,8 +34,19 @@ var danmuFileName;
 var danmuAssFileName;
 var danmuTempFileName;
 
-// 为客户端添加“data”事件处理函数
-// data是服务器发回的数据
+// 在重启弹幕收集器时, 该变量将记录重启之前的标记, 并于 close 事件中被使用
+var currentSymbol_PRE;
+var danmuFileName_PRE;
+var danmuAssFileName_PRE;
+var danmuTempFileName_PRE;
+
+/**
+ * 为客户端添加“data”事件处理函数
+ * data是服务器发回的数据
+ *
+ * 在此直播监听程序中, 服务器返回的数据只可能是弹幕信息
+ * 因此本函数是对弹幕数据进行解析和记录
+ */
 client.on('data', function(data) {
     
     // 原始字符串
@@ -49,7 +64,7 @@ client.on('data', function(data) {
 
         // 弹幕消息
         if(msgObj.cmd === "DANMU_MSG"){
-            log(msgObj.info[2][1] + " 说: " + msgObj.info[1])
+            common.logDanmu(msgObj.info[2][1] + " 说: " + msgObj.info[1])
 
             // 对弹幕文件进行转义：&，<，>
             msgObj.info[1] = msgObj.info[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -61,7 +76,7 @@ client.on('data', function(data) {
 
             // 向临时文件里追加数据
             fs.appendFile(danmuTempFileName, oneDanmu, function(err){
-                if(err) return console.log(err);
+                if(err) return common.logError(err.toString())
             });
         }
     }
@@ -69,52 +84,58 @@ client.on('data', function(data) {
 
 // 为客户端添加“close”事件处理函数
 client.on('close', function() {
-    log('Connection closed ID: ' + currentSymbol);
+    common.log('Connection closed ID: ' + currentSymbol_PRE);
 
-    // 套接字关闭后, 将心跳包传输关闭, 并解除所有事件
+    // 套接字关闭后, 将心跳包传输关闭
     clearInterval(heartTimer);
 
     // 处理临时xml文件, 使其成为标准xml文件
-    fs.readFile(danmuTempFileName, 'utf8', function(err, data){
+    fs.readFile(danmuTempFileName_PRE, 'utf8', function(err, data){
 
         if(err){
-            log('奇怪呢..这里不应该出错诶...  错误 : 打开 xml_temp 文件失败!');
-            throw err;
+            common.logError('奇怪呢..这里不应该出错诶...  错误 : 打开 xml_temp 文件失败!');
+            common.logError(err.toString());
+            return;
         }
 
         var newDanmuContent = '<?xml version="1.0" encoding="UTF-8"?><i><chatserver>chat.bilibili.com</chatserver><chatid>8888888</chatid><mission>0</mission><maxlimit>8888</maxlimit><source>k-v</source>' + data + '</i>';
 
         // 生成标准xml文件
-        fs.writeFile(danmuFileName, newDanmuContent, function(err){
+        fs.writeFile(danmuFileName_PRE, newDanmuContent, function(err){
             if(err) throw err;
-            log("新弹幕文件已生成!");
+            common.log("新弹幕文件已生成!");
 
             // 调用 danmaku2ass 生成标准ass文件
-            var pythonCommand = config.pythonName + " ./danmaku2ass.py -o "  + danmuAssFileName + " -s " + config.s + " -fn " + config.fn + " -fs " + config.fs + " -a " + config.a + " -dm " + config.dm + " -ds " + config.ds + " "  + danmuFileName;
+            var pythonCommand = config.pythonName + " ./danmaku2ass.py -o "  + danmuAssFileName_PRE + " -s " + config.s + " -fn " + config.fn + " -fs " + config.fs + " -a " + config.a + " -dm " + config.dm + " -ds " + config.ds + " "  + danmuFileName_PRE;
             // console.log(pythonCommand)
 
             // 执行生成 ass 文件的命令
             exec(pythonCommand, function(err ,stdout, stderr){
-                if (err) return log(err);
-                log('视频ass文件正在生成!')
+                if (err) {
+                    return common.logError("ass文件生成 err 输出: " + err.toString());
+                }
 
-                if(stdout) log(`ass文件生成 stdout 输出: ${stdout}`)
-                if(stderr) log(`ass文件生成 stderr 输出: ${stderr}`)
+                common.log('视频ass文件正在生成!')
+
+                if(stdout) common.log(`ass文件生成 stdout 输出: ${stdout}`)
+                if(stderr) common.logError(`ass文件生成 stderr 输出: ${stderr}`)
                 
             })
 
             // 删除临时xml文件
-            fs.unlink(danmuTempFileName, function(err){
-                if(err) throw err;
-                log("旧弹幕文件已删除!")
+            fs.unlink(danmuTempFileName_PRE, function(err){
+                if(err) return common.logError("临时 xml 文件删除中发生错误 : " + err.toString());
+
+                common.log("旧弹幕文件已删除!")
             })
         })
     })
 });
 
 // 为客户端添加 "error" 事件处理函数
-client.once("error", (err) => {
-    log("弹幕收集器发生错误 : " + err);
+client.on("error", (err) => {
+    common.logError("弹幕收集器发生错误 : " + err.toString());
+    startDanmuServer(RoomId, currentSymbol)
 })
 
 // 阶段1: 解析房间真实地址
@@ -129,11 +150,11 @@ function getTureRoomID(RoomId){
             }
 
             // 一定几率不给回传数据
-            if(!res){getTureRoomID(RoomId);return;}
+            if (!res) {getTureRoomID(RoomId);return;}
 
             var match = res.text.match(/var ROOMID = \d*?;/)
             var TureRoomID = match[0].replace("var ROOMID = ", "").replace(";", "");
-            log("成功解析房间 " + RoomId + " 的真实房间地址为 " + TureRoomID)
+            common.log("成功解析房间 " + RoomId + " 的真实房间地址为 " + TureRoomID)
 
             var currentSymbol = createSymbol();
             startDanmuServer(TureRoomID, currentSymbol)
@@ -144,23 +165,25 @@ function getTureRoomID(RoomId){
 // 该阶段也是与 app.js 连接时提供的接口
 function startDanmuServer(RoomId, currentSymbolTemp){
 
-    // 每次开启弹幕收集器时, 更新 currentSymbol
-    currentSymbol = currentSymbolTemp;
+    // 加上判断语句是可能会出现 startDanmuServer 错误(虽然在B站更新弹幕服务器后这种错误不会出现了... 不过以防万一还是加上比较好), 如果是错误重试的话就不用再更新以下的内容了
+    if (currentSymbol !== currentSymbolTemp) {
 
-    request.get("http://live.bilibili.com/api/player?id=cid:" + RoomId)
-        .timeout(3000)
-        .end(function(err, res){
-            if(err) {
-                if(err.timeout) {startDanmuServer(RoomId);return;}
-                else throw err;
-            }
+        // 每次开启弹幕收集器时, 将 app.js 文件中生成的 currentSymbol 更新到当前文件
+        currentSymbol     = currentSymbolTemp;
+        
+        // 每次开启弹幕收集器时, 更新 xmlTime
+        xmlTime           = Math.ceil(+new Date() / 1000);
+        
+        // 每次开启弹幕收集器时, 更新文件名变量
+        danmuFileName     = "./download/" + currentSymbol + '.xml';
+        danmuAssFileName  = "./download/" + currentSymbol + '.ass';
+        danmuTempFileName = "./download/" + currentSymbol + '_temp.xml';
 
-            // var danmuServer = res.text.match(/livecmt.*?com/)[0];
-            var danmuServer =  "dm.live.bilibili.com";
-
-            log("成功解析弹幕服务器地址: " + danmuServer);
-            startTCPClient(RoomId, danmuServer, currentSymbol)
-        })
+    }
+        
+    // B站 弹幕服务器最新更新: 弹幕服务器固定为 dm.live.bilibili.com, 无需再发送请求进行获取
+    var danmuServer =  "dm.live.bilibili.com";
+    startTCPClient(RoomId, danmuServer, currentSymbol)
 }
 
 // 阶段3: 开启TCP客户端
@@ -169,22 +192,14 @@ function startTCPClient(RoomId, danmuServer, currentSymbol){
     var HOST = danmuServer;
     var PORT = 788;
 
-    // 每次开启弹幕收集器时, 更新 xmlTime
-    xmlTime   = Math.ceil(+new Date() / 1000);
-    
-    // 每次开启弹幕收集器时, 更新文件名变量
-    danmuFileName       = currentSymbol + '.xml';
-    danmuAssFileName    = currentSymbol + '.ass';
-    danmuTempFileName   = currentSymbol + '_temp.xml';
-
     // 正式开启TCP连接
     client.connect(PORT, HOST, function() {
 
-        log('CONNECTED TO: ' + HOST + ':' + PORT + ' ID: ' + currentSymbol);
+        common.log('CONNECTED TO: ' + HOST + ':' + PORT + ' ID: ' + currentSymbol);
 
         // 在连接刚建立时新建弹幕临时文件, 以防止在整个阶段没有弹幕而导致文件无法生成进而引发Bug
         fs.appendFile(danmuTempFileName, '', function(err){
-            if(err) return console.log(err);
+            if(err) return common.logError(err.toString());
         });
         
         // 每隔30秒发送一次心跳包
@@ -192,7 +207,7 @@ function startTCPClient(RoomId, danmuServer, currentSymbol){
         heartTimer = setInterval(function(){
             var heart = new Buffer([0x00,0x00,0x00,0x10,0x00,0x10,0x00,0x01,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x01]);
             client.write(Buffer(heart));
-            log("已发送心跳包!")
+            common.logSimple("已发送心跳包!")
         }, 30000)
 
         // 开启直播间所需要发送的数据包 其头部格式第4项是数据包的长度
@@ -203,7 +218,7 @@ function startTCPClient(RoomId, danmuServer, currentSymbol){
 
         // 第一次发送数据包
         client.write(Buffer(buffer));
-        log("已发送开启弹幕收集器所需要的数据包");
+        common.log("已发送开启弹幕收集器所需要的数据包");
     });
 }
 
@@ -211,6 +226,13 @@ function startTCPClient(RoomId, danmuServer, currentSymbol){
  * 关闭弹幕收集器
  */
 function stopDanmuServer() {
+
+    // 将重启之前的标识存入变量
+    currentSymbol_PRE     = currentSymbol;
+    danmuFileName_PRE     = danmuFileName;
+    danmuAssFileName_PRE  = danmuAssFileName;
+    danmuTempFileName_PRE = danmuTempFileName;
+
     client.destroy();
 }
 
@@ -220,19 +242,6 @@ function stopDanmuServer() {
 function restartDanmuServer(RoomId, currentSymbolTemp) {
     stopDanmuServer();
     startDanmuServer(RoomId, currentSymbolTemp)
-}
-
-/**
- * 获取区分不同时间的标识符
- * 当前是根据系统时间来确定, 举例为 : 20161018_182620
- */
-function createSymbol() {
-    return new Date(Math.floor(Date.now() / 1000) * 1000).toLocaleString().replace(/:/g, "").replace(/-/g, "").replace(/ /g, "_")
-}
-
-// 记录数据
-function log(str){
-    console.log(new Date().toLocaleString() + "  " + str);
 }
 
 module.exports.startDanmuServer     = startDanmuServer;
