@@ -17,7 +17,7 @@ var heartTimer;
 // 当前弹幕收集器的标识符, 区分不同弹幕收集器的重要标志, 在每次弹幕收集器开启时更新
 var currentSymbol;
 
-
+var currentRoomID;
 
 // 当前弹幕收集器开始运行的时间, 以 s 计, 该变量用于控制弹幕的相对时间, 在每次弹幕收集器开启时更新
 var xmlTime;
@@ -107,7 +107,8 @@ client.on('close', function() {
 
             // 调用 danmaku2ass 生成标准ass文件
             var pythonCommand = config.pythonName + " ./danmaku2ass.py -o "  + danmuAssFileName_PRE + " -s " + config.s + " -fn " + config.fn + " -fs " + config.fs + " -a " + config.a + " -dm " + config.dm + " -ds " + config.ds + " "  + danmuFileName_PRE;
-            // console.log(pythonCommand)
+            console.log(pythonCommand)
+            //python3 ./danmaku2ass.py -o ./download/20161028_214338.ass -s 1920x1080 -fn 'Noto Sans CJK SC Regular' -fs 48 -a 0.8 -dm 8 -ds 5 ./download/20161028_214338.xml
 
             // 执行生成 ass 文件的命令
             exec(pythonCommand, function(err ,stdout, stderr){
@@ -115,7 +116,7 @@ client.on('close', function() {
                     return common.logError("ass文件生成 err 输出: " + err.toString());
                 }
 
-                common.log('视频ass文件正在生成!')
+                common.log('视频ass文件成功生成!')
 
                 if(stdout) common.log(`ass文件生成 stdout 输出: ${stdout}`)
                 if(stderr) common.logError(`ass文件生成 stderr 输出: ${stderr}`)
@@ -135,34 +136,14 @@ client.on('close', function() {
 // 为客户端添加 "error" 事件处理函数
 client.on("error", (err) => {
     common.logError("弹幕收集器发生错误 : " + err.toString());
-    startDanmuServer(RoomId, currentSymbol)
+    restartDanmuServer(currentRoomID, currentSymbol)
 })
 
-// 阶段1: 解析房间真实地址
-function getTureRoomID(RoomId){
-    request.get("http://live.bilibili.com/" +　RoomId)
-        .timeout(3000)
-        .end(function(err, res){
-
-            if(err) {
-                if(err.timeout) {getTureRoomID(RoomId);return;}
-                else throw err;
-            }
-
-            // 一定几率不给回传数据
-            if (!res) {getTureRoomID(RoomId);return;}
-
-            var match = res.text.match(/var ROOMID = \d*?;/)
-            var TureRoomID = match[0].replace("var ROOMID = ", "").replace(";", "");
-            common.log("成功解析房间 " + RoomId + " 的真实房间地址为 " + TureRoomID)
-
-            var currentSymbol = createSymbol();
-            startDanmuServer(TureRoomID, currentSymbol)
-        })
-}
-
-// 阶段2: 解析弹幕服务器
-// 该阶段也是与 app.js 连接时提供的接口
+/**
+ * 开始启动弹幕服务器
+ * @param  {string} RoomId            直播间的真实房间号
+ * @param  {string} currentSymbolTemp 由调用方提供的本次抓取的标识符
+ */
 function startDanmuServer(RoomId, currentSymbolTemp){
 
     // 加上判断语句是可能会出现 startDanmuServer 错误(虽然在B站更新弹幕服务器后这种错误不会出现了... 不过以防万一还是加上比较好), 如果是错误重试的话就不用再更新以下的内容了
@@ -170,6 +151,8 @@ function startDanmuServer(RoomId, currentSymbolTemp){
 
         // 每次开启弹幕收集器时, 将 app.js 文件中生成的 currentSymbol 更新到当前文件
         currentSymbol     = currentSymbolTemp;
+
+        currentRoomID     = RoomId;
         
         // 每次开启弹幕收集器时, 更新 xmlTime
         xmlTime           = Math.ceil(+new Date() / 1000);
@@ -186,7 +169,12 @@ function startDanmuServer(RoomId, currentSymbolTemp){
     startTCPClient(RoomId, danmuServer, currentSymbol)
 }
 
-// 阶段3: 开启TCP客户端
+/**
+ * 开启 TCP 链接, 以从服务器接收弹幕数据
+ * @param  {string} RoomId        直播间的真实房间号
+ * @param  {string} danmuServer   弹幕服务器, 提供 TCP 连接
+ * @param  {string} currentSymbol 当前抓取的标识符
+ */
 function startTCPClient(RoomId, danmuServer, currentSymbol){
 
     var HOST = danmuServer;

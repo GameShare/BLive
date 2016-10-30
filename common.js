@@ -16,6 +16,11 @@ colors.setTheme({
 
 module.exports = {
 
+    // 此次监听的基本信息, 由 commonInit 进行初始化
+    RoomId : undefined,
+    RoomTitle : undefined,
+    RoomUP : undefined,
+
     // 输出调试信息
     log(str){
         process.stdout.write(new Date().toLocaleString() + "  ");
@@ -41,10 +46,24 @@ module.exports = {
     },
 
     /**
+     * 将一些可能会有用的信息存入到此模块, 以方便以后使用
+     * 此方法会在首次解析房间号的时候被调用, 且整个程序过程中只会被调用一次
+     * @param  {string} RoomId    直播的真实房间号
+     * @param  {string} RoomTitle 直播的标题
+     * @param  {string} RoomUP    直播的 UP 主
+     */
+    commonInit (RoomId, RoomTitle, RoomUP) {
+        this.RoomId    = RoomId;
+        this.RoomTitle = RoomTitle;
+        this.RoomUP    = RoomUP;
+    },
+
+    /**
      * 获取区分不同时间的标识符
      * 当前是根据系统时间来确定, 示例为 : 20161018_182620
      */
-    createSymbol(){
-        return new Date(Math.floor(Date.now() / 1000) * 1000).toLocaleString().replace(/:/g, "").replace(/-/g, "").replace(/ /g, "_")
+    createSymbol(isNoVideo){
+        var dateStr = new Date(Math.floor(Date.now() / 1000) * 1000).toLocaleString().replace(/:/g, "").replace(/-/g, "").replace(/ /g, "_")
+        return this.RoomUP + " " + dateStr + (isNoVideo ? "NoVideo" : "");
     }
 }

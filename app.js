@@ -65,6 +65,9 @@ function getTrueRoomID(RoomId){
             common.log(`房间信息 : 输入的房间地址为 ${RoomId}, 已解析出房间真实地址为 ${TrueRoomID}`);
             common.log(`房间信息 : 房间标题为 ${RoomTitle}, UP主为 ${RoomUP}`)
 
+            // 对公共模块的一些基本信息进行初始化
+            common.commonInit(TrueRoomID, RoomTitle, RoomUP)
+
             // 在获取到房间的真实信息后, 运行下一个函数以开始爬取
             main(TrueRoomID)
         })
@@ -73,13 +76,8 @@ function getTrueRoomID(RoomId){
 // 阶段2:　主函数, 开始进行弹幕和视频的爬取
 function main(RoomId){
 
+    // 新建一个文件夹 download
     makeNewDirection();
-
-    // 定义一个独一无二的标识符, 形式为 20161018_182620
-    // currentSymbol = common.createSymbol();
-
-    // 连接弹幕服务器
-    // danmu.startDanmuServer(RoomId, currentSymbol)
 
     // 连接视频服务器
     checkRoomInfo(RoomId)
@@ -147,7 +145,7 @@ function checkRoomInfo(RoomId){
                     if(danmuFlag && !firstFlag){
                         common.log("直播间已关闭, 故弹幕收集器已重启!")
 
-                        currentSymbol = common.createSymbol();
+                        currentSymbol = common.createSymbol(true);
                         danmu.restartDanmuServer(RoomId, currentSymbol)
                         danmuFlag = 0;
                     }
@@ -182,6 +180,7 @@ function checkStreamBytes() {
         videoRBQ.abort();
         check0ByteVideo(currentSymbol);
         streamFlag = false;
+        tempBytesRead = -1;
 
         common.log("因长时间未接收到数据, 连接已主动断开");
         showMsg("BLive 直播监听程序", `因长时间未接收到数据, 直播间 ${RoomId} 的连接已断开`, (err) => {});
@@ -189,19 +188,23 @@ function checkStreamBytes() {
         // 网络原因断开后, 弹幕收集器重启
         common.log("连接长时间未接收到数据, 故弹幕收集器已重启!")
 
-        currentSymbol = common.createSymbol();
+        currentSymbol = common.createSymbol(true);
         danmu.restartDanmuServer(RoomId, currentSymbol)
 
         danmuFlag = 0;
         
     // 如果判断语句中的两者不相等, 则代表数据依然在传输, 则更新目前已传输数据
     } else if (streamFlag) {
+        common.logSimple("当前阶段传输数据量 : " + (videoRBQ.req.socket.bytesRead - tempBytesRead) / 1000 + "KB/20s")
         tempBytesRead = videoRBQ.req.socket.bytesRead;
     }
 
 }
 
-// 视频服务器的检查连接 Part 2 下载视频相关
+/**
+ * 开始对指定房间里的直播视频流进行下载
+ * @param  {string} RoomId 直播间的真实房间号
+ */
 function startDownload(RoomId){
 
     // 要保存的视频的名称, 格式为 20160625_223516.flv
@@ -275,7 +278,7 @@ function check0ByteVideo (checkSymbol) {
         fs.stat("./download/" + checkSymbol + ".flv", (err, stats) => {
             if(err) return common.logError("检查0字节文件发送错误 : " + err.toString());
 
-            if (stats.size === 0) {
+            if (stats.size < 1000) {
                 common.log(`发现 0 字节视频, 标识符为 ${checkSymbol}, 即将进行删除工作!`)
 
                 fs.unlink("./download/" + checkSymbol + ".flv", (err) => {if(err) return common.logError("删除0字节文件发送错误 : " + err.toString()); });
