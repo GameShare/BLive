@@ -2,13 +2,13 @@
 var config = {
 
     // 直播间的房间号
-    roomId: 93889,
+    roomId: 1013,
 
     // 断线之后重连的等待时间
     timeout : 3000,
 
     // 电脑里python的程序名称, 默认为 windows 下的 python, python版本需要大于3
-    pythonName : 'python3',
+    pythonName : 'python',
 
     // 视频的分辨率, 默认为 1920*1080
     // 该参数理论上无论视频分辨率是什么都不用修改
