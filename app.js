@@ -39,6 +39,11 @@ var videoRBQ;
 /*Global Symbol*/
 var currentSymbol;
 
+// 检查 python 指令
+common.checkPython(config.pythonName, (err) => {
+    if (err) return common.logError(err.toString());
+})
+
 // 首先获取房间的真实ID
 getTrueRoomID(RoomId)
 

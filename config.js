@@ -8,10 +8,10 @@ var config = {
     timeout : 3000,
 
     // 电脑里python的程序名称, 默认为 windows 下的 python, python版本需要大于3
-    pythonName : 'python',
+    pythonName : 'python3',
 
     // 视频的分辨率, 默认为 1920*1080
-    // 该参数理论上无论视频分辨率是什么都不用修改
+    // 该参数理论上无论视频分辨率(只要是 16 : 9)是什么都不用修改
     s: '1920x1080',
 
     // 输出的ass文件中的字体, 默认为 'Noto Sans CJK SC Regular'

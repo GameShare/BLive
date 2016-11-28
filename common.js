@@ -1,4 +1,6 @@
 var colors    = require('colors'); 
+var cp        = require('child_process');
+var request   = require('superagent');
 
 // 控制台颜色设置
 colors.setTheme({  
@@ -65,5 +67,40 @@ module.exports = {
     createSymbol(isNoVideo){
         var dateStr = new Date(Math.floor(Date.now() / 1000) * 1000).toLocaleString().replace(/:/g, "").replace(/-/g, "").replace(/ /g, "_")
         return this.RoomUP + " " + dateStr + (isNoVideo ? "NoVideo" : "");
+    },
+
+    /**
+     * 检查当前设置的 python 的程序是否正确
+     * @param  {string}   pythonCmd 当前设置的 python 指令
+     * @param  {Function} callback  若有 Error, 则说明当前设置的指令并不正确
+     */
+    checkPython(pythonCmd, callback) {
+        cp.exec(`${pythonCmd} -V`, (err, stdout, stderr) => {
+            if (err || stderr) return callback(new Error("警告！未找到 python 程序"));
+            if (stdout.indexOf("3.") === -1)  return callback(new Error("警告！python 的版本应该是 3"));
+            callback(null);
+        })
+    },
+
+    /**
+     * 获取网络时间, 并进行校对
+     */
+    getNetTime(callback) {
+        request.get('http://biaozhunshijian.51240.com/web_system/51240_com_www/system/file/biaozhunshijian/time.js/')
+            .end((err, res) => {
+                if (err) return callback(new Error("获取网络时间失败"));
+                var match = /time\":(\d*).\d}/.exec(res.text);
+                if (match === null) {return callback(new Error("获取网络时间失败"));}
+
+                // 网络时间的毫秒数
+                var newTime = Number(match[1]);
+
+                // 略
+            })
     }
+
+
 }
+
+
+module.exports.getNetTime()
