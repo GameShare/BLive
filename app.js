@@ -44,6 +44,9 @@ common.checkPython(config.pythonName, (err) => {
     if (err) return common.logError(err.toString());
 })
 
+// 开始定时校对时间
+common.setNetTimeInterval(config.setDateTimeout);
+
 // 首先获取房间的真实ID
 getTrueRoomID(RoomId)
 

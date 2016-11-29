@@ -7,8 +7,11 @@ var config = {
     // 断线之后重连的等待时间
     timeout : 3000,
 
+    // 校正时间的间隔时间(单位 : s)
+    setDateTimeout : 120,
+
     // 电脑里python的程序名称, 默认为 windows 下的 python, python版本需要大于3
-    pythonName : 'python3',
+    pythonName : 'python',
 
     // 视频的分辨率, 默认为 1920*1080
     // 该参数理论上无论视频分辨率(只要是 16 : 9)是什么都不用修改
