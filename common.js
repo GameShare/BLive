@@ -1,22 +1,22 @@
-const colors    = require('colors'); 
+const colors    = require('colors');
 const cp        = require('child_process');
 const request   = require('superagent');
 
 const timeSet   = require('./timeSet/timeSet.js');
 
 // 控制台颜色设置
-colors.setTheme({  
-    danmu: 'grey',  
-    simple: 'green',  
-    verbose: 'cyan',  
-    prompt: 'red',  
-    info: 'white',  
-    data: 'blue',  
-    help: 'cyan',  
-    warn: 'yellow',  
-    debug: 'magenta',  
-    error: 'red'  
-});  
+colors.setTheme({
+    danmu: 'grey',
+    simple: 'green',
+    verbose: 'cyan',
+    prompt: 'red',
+    info: 'white',
+    data: 'blue',
+    help: 'cyan',
+    warn: 'yellow',
+    debug: 'magenta',
+    error: 'red'
+});
 
 module.exports = {
 
@@ -42,7 +42,7 @@ module.exports = {
         process.stdout.write(new Date().toLocaleString() + "  ");
         console.log(str.danmu);
     },
-
+    
     // 输出简单的调试信息
     logSimple(str){
         process.stdout.write(new Date().toLocaleString() + "  ");
@@ -118,7 +118,7 @@ module.exports = {
     /**
      * 开始定时校对, 间隔以秒为单位
      */
-    
+
     setNetTimeInterval(timeout) {
         setInterval(this.setNetTime, timeout * 1000)
     }
