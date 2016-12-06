@@ -77,9 +77,9 @@ module.exports = {
      * @param  {Function} callback  若有 Error, 则说明当前设置的指令并不正确
      */
     checkPython(pythonCmd, callback) {
-        cp.exec(`${pythonCmd} -V`, (err, stdout, stderr) => {
+        cp.exec(`${pythonCmd} -V`, (err, stderr, stdout) => {
             if (err || stderr) return callback(new Error("警告！未找到 python 程序"));
-            if (stdout.indexOf("3.") === -1)  return callback(new Error("警告！python 的版本应该是 3"));
+            if (stdout.indexOf("3.") === -1)  return callback(new Error("警告！python 的版本应该是 3, 而你的电脑里装的是 2"));
             callback(null);
         })
     },
