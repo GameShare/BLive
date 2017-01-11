@@ -164,9 +164,18 @@ function startDanmuServer(RoomId, currentSymbolTemp){
 
     }
         
-    // B站 弹幕服务器最新更新: 弹幕服务器固定为 dm.live.bilibili.com, 无需再发送请求进行获取
-    var danmuServer =  "dm.live.bilibili.com";
-    startTCPClient(RoomId, danmuServer, currentSymbol)
+    // 12月11日 更新 弹幕服务器再一次更新
+    request.get("http://live.bilibili.com/api/player?id=cid:" + RoomId)
+        .timeout(3000)
+        .end(function(err, res) {
+            if (err) {
+                if (err.timeout) { getDanmuServer(RoomId); return; } else throw err;
+            }
+
+            var danmuServer = res.text.match(/livecmt.*?com/)[0];
+            common.log("成功解析弹幕服务器地址: " + danmuServer);
+            startTCPClient(RoomId, danmuServer, currentSymbol)
+        })
 }
 
 /**
