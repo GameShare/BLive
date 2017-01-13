@@ -68,7 +68,7 @@ module.exports = {
      */
     createSymbol(isNoVideo){
         var dateStr = new Date(Math.floor(Date.now() / 1000) * 1000).toLocaleString().replace(/:/g, "").replace(/-/g, "").replace(/ /g, "_")
-        return this.RoomUP + " " + dateStr + (isNoVideo ? "NoVideo" : "");
+        return this.RoomUP + "_" + dateStr + (isNoVideo ? "NoVideo" : "");
     },
 
     /**
@@ -79,7 +79,7 @@ module.exports = {
     checkPython(pythonCmd, callback) {
         cp.exec(`${pythonCmd} -V`, (err, stderr, stdout) => {
             if (err) return callback(new Error("警告！未找到 python 程序"));
-            if (stderr.indexOf("3.") === -1 || stdout.indexOf("3.") === -1)  return callback(new Error("警告！python 的版本应该是 3, 而你的电脑里装的是 2"));
+            if (stderr.indexOf("3.") === -1 && stdout.indexOf("3.") === -1)  return callback(new Error("警告！python 的版本应该是 3, 而你的电脑里装的是 2"));
             callback(null);
         })
     },

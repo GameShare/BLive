@@ -19,7 +19,7 @@ var config = {
 
     // 输出的ass文件中的字体, 默认为 'Noto Sans CJK SC Regular'
     // 注意: 如果字体中间有空格 一定要用引号扩起来!!!
-    fn: "'Noto Sans CJK SC Regular'",
+    fn: "微软雅黑",
 
     // 输出的ass文件中的字体大小, 默认为 48
     fs: 48,
