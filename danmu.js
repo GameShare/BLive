@@ -106,7 +106,7 @@ client.on('close', function() {
             common.log("新弹幕文件已生成!");
 
             // 调用 danmaku2ass 生成标准ass文件
-            var pythonCommand = `${config.pythonName} ./danmaku2ass.py -o '${danmuAssFileName_PRE}' -s ${config.s} -fn ${config.fn} -a ${config.a} -dm ${config.dm} -ds ${config.ds} '${danmuFileName_PRE}'`;
+            var pythonCommand = `${config.pythonName} ./danmaku2ass.py -o ${danmuAssFileName_PRE} -s ${config.s} -fn ${config.fn} -fs ${config.fs} -a ${config.a} -dm ${config.dm} -ds ${config.ds} ${danmuFileName_PRE}`;
             console.log(pythonCommand)
             //python3 ./danmaku2ass.py -o ./download/20161028_214338.ass -s 1920x1080 -fn 'Noto Sans CJK SC Regular' -fs 48 -a 0.8 -dm 8 -ds 5 ./download/20161028_214338.xml
 
